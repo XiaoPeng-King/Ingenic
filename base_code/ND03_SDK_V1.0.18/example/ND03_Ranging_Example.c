@@ -40,13 +40,16 @@ void SG_RangingTest(ND03_Dev_t *pNxDevice)
  * 
  * @return int32_t 
  */
-int32_t main(void)
+int32_t main(int argc, char *argv[])
 {
+	int ret = 0;
+    //int i = 0;
+
 	/* 函数指针结构体 */
     ND03_Func_Ptr_t dev_op = {NULL, NULL, NULL, NULL}; 
 
 	/* 循环测距次数为100次 */
-    int32_t cnt = 100;
+    int32_t cnt = 1000;
     
 	/* 初始化函数指针结构体 */
 	dev_op.Delay10usFunc = delay_10us;
@@ -76,8 +79,11 @@ int32_t main(void)
 
 	/* 循环测量 */
 	while(cnt --) {
+		//printf("-");
+		usleep(50000);
         SG_RangingTest(&g_nd03_device);
     }
+	printf("\n ND03 test OK \n");
 
 	return 0;
 }

@@ -6,6 +6,29 @@
 #define __ND03_PLATFORM__H__
 #include "nd03_stdint.h"
 #include "nd03_def.h"
+#include <linux/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <errno.h>
+#include <assert.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
+
+//TOF 摄像头地址
+#define I2C_ND03_DEV_ADDR 0x5B   //i2c设备地址
+
+//char default_i2c[] = "/dev/i2c-0";
+
+
+struct i2c_rdwr_ioctl_data i2c_data;
+
+//int i2c_init(void);
 
 /**
  * @brief I2C读一个字节

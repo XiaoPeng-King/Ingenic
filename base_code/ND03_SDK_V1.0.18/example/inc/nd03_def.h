@@ -20,7 +20,7 @@
 
 
 
-#define DEBUG_INFO        0 /** 调试信息打印开关 */
+#define DEBUG_INFO        1 /** 调试信息打印开关 */
 
 #if ND03_PLATFORM == PLATFORM_NOT_C51
 #define NX_PRINTF(fmt, ...)   do{if(DEBUG_INFO) printf(fmt, ##__VA_ARGS__); }while(0) /** 调试接口，默认使用printf */

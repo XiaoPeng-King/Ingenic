@@ -940,6 +940,8 @@ int32_t ND03_WaitDeviceBootUp(ND03_Dev_t *pNxDevice)
     uint32_t    rbuf = 0xFFFFFFFF;
 
     NX_PRINTF("%s Start!\r\n", __func__);
+    //printf("%s Start!\r\n", __func__);
+
 
     /* 重启 */
     ND03_SetXShutPinLevel(pNxDevice, 0);

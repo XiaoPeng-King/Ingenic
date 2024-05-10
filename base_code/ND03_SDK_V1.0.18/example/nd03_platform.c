@@ -3,65 +3,33 @@
 */
 
 #include <stdio.h>
-#include <linux/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <errno.h>
-#include <assert.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <linux/i2c.h>
-#include <linux/i2c-dev.h>
+
 
 #include "nd03_platform.h"
 
 //#define I2C_24C02_DEV_ADDR 0x50   //i2c设备地址
 
-#define I2C_TP_GT911_DEV_ADDR 0x28   //i2c设备地址,0x28,29
+//#define I2C_TP_GT911_DEV_ADDR 0x28   //i2c设备地址,0x28,29
 
-
-const char default_i2c[] = "/dev/i2c-2";
-char *path = 0;
-
-static int i2c_fd;
-struct i2c_rdwr_ioctl_data i2c_data;
-
-int32_t i2c_read_nbytes(uint8_t i2c_addr, uint16_t i2c_read_addr, uint8_t *i2c_read_data, uint8_t len)
-{
-    //For user implement
-
-
-    i2c_read_bytes();
-
-    return 0;
-}
-
-int32_t i2c_write_nbytes(uint8_t i2c_addr, uint16_t i2c_write_addr, uint8_t *i2c_write_data, uint8_t len)
-{
-    //For user implement
-
-    return 0;
-}
+static int i2c_fd = 0;
 
 
 void delay_1ms(uint32_t count)
 {
     //For user implement
+    usleep(1000);
 }
 
 void delay_10us(uint32_t count)
 {
     //For user implement
+    usleep(10);
 }
-
 
 void set_xshut_pin_level(uint32_t level)
 {
     //For user implement
+    return 0;
 }
 
 
@@ -69,12 +37,12 @@ void set_xshut_pin_level(uint32_t level)
  * i2c初始化函数
  *
  * */
-int i2c_init(void)
+static int i2c_init(void)
 {
 	int fd = 0, ret = 0;
-	if ((fd = open(path, O_RDWR)) < 0)
+	if ((fd = open("/dev/i2c-0", O_RDWR)) < 0)
 	{
-		printf("open %s failed:%s\n", path, strerror(errno));
+		printf("open %s failed:%s\n", "/dev/i2c-0", strerror(errno));
 		return -1;
     }
     if ((ret = ioctl(fd, I2C_TIMEOUT, 100)) < 0) //超时时间
@@ -96,62 +64,35 @@ int i2c_init(void)
         return -1;
     }
     i2c_fd=fd;
+    printf("i2c init successful \n");
 	return 0;
 }
 /**
  * 
  * */
-int i2c_exit(void)
+static int i2c_exit(void)
 {
     if (i2c_fd > 0)
 		close(i2c_fd);
 	return 0;
 }
 
-
 /**
- * i2c 单字节读取
+ * ND03A 寄存器地址为16bit，这里吧reg的char类型改成了int
  * */
-int i2c_read_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char *buf)
+static int i2c_read_bytes_dou_reg(int fd,unsigned char dev_addr,int reg_addr,unsigned char *buf,unsigned int len)
 {
 	int ret = 0;
-	int dev_node = i2c_fd;
     struct i2c_msg message[2];
+    int tmp1, tmp2;
+    tmp1 = ((reg_addr & 0xff00)>>8); // 0x1234 & 0xff00 = 0x1200 >> 8 = 0x0012
+    tmp2 = ((reg_addr & 0x00ff)<<8); // 0x1234 & 0x00ff = 0x0034 << 8 = 0x3400
+    reg_addr = tmp2 | tmp1;
 
     message[0].addr = dev_addr;//设备地址
     message[0].flags = 0;   //写标志
     message[0].buf = &reg_addr;//寄存器地址
-    message[0].len = sizeof(reg_addr);
-
-    message[1].addr = dev_addr;//设备地址
-    message[1].flags = I2C_M_RD; //读标志
-    message[1].buf = buf;
-    message[1].len = sizeof(reg_addr);
-
-    i2c_data.msgs = message;
-    i2c_data.nmsgs = 2;
-
-    ret = ioctl(dev_node, I2C_RDWR, (unsigned long)&i2c_data);
-    if (ret < 0)
-    {
-		printf("%s:%d I2C: read error:%s\n", __func__, __LINE__, strerror(errno));
-		return ret;
-	}
-	return 0;
-}
-
-/**
- * i2c 多字节读取
- * */
-int i2c_read_bytes(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char *buf,unsigned int len)
-{
-	int ret = 0;
-    struct i2c_msg message[2];
-
-    message[0].addr = dev_addr;//设备地址
-    message[0].flags = 0;   //写标志
-    message[0].buf = &reg_addr;//寄存器地址
-    message[0].len = sizeof(reg_addr);
+    message[0].len = 2;//sizeof(reg_addr); //这里只取前16bit，两个字节
 
     message[1].addr = dev_addr;//设备地址
     message[1].flags = I2C_M_RD; //读标志
@@ -170,29 +111,37 @@ int i2c_read_bytes(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned
 	return 0;
 }
 
-
-
 /**
- * i2c 单字节写
+ * 这里由于ND03A的寄存器地址是多双字节的，因此，这里需要有两个寄存器地址
  * */
-int i2c_write_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char value_byte)
+static int i2c_write_bytes_dou_reg(int fd,unsigned char dev_addr,int reg_addr, unsigned char *p_value_bytes,unsigned int len)
 {
-	int ret = 0;
-    unsigned char buf[2]={0};
+	int ret = 0,i = 0;
+    unsigned char buf[10]={0};
+    unsigned char reg_addr1, reg_addr2;
     struct i2c_msg message;
     
-    buf[0] = reg_addr;//寄存器地址
-    buf[1] = value_byte;//写入的字节
-   
+    reg_addr1 = (reg_addr & 0xFF00)>>8;
+    reg_addr2 = (reg_addr & 0x00FF);
+    //printf("\nreg_addr1: 0x%x, reg_addr2: 0x%x\n", reg_addr1, reg_addr2);
+
+    buf[0] = reg_addr1;//寄存器地址1
+    buf[1] = reg_addr2;//寄存器地址2
+
+    for(i = 0;i < len;i++){
+        buf[i+2] = p_value_bytes[i];
+        //printf("buf[%d]= 0x%x \n", i+2, buf[i+2]);
+    }
+    
     message.addr = dev_addr;//设备地址
     message.buf = buf;
     message.flags = 0;//写标志
-    message.len = 2;
+    message.len = len+2;//data+reg_addr
 
     i2c_data.msgs = &message;
     i2c_data.nmsgs = 1;
 
-	ret = ioctl(fd, I2C_RDWR,&i2c_data);
+	ret = ioctl(fd, I2C_RDWR, &i2c_data);
 	if (ret < 0)
 	{
 		printf("%s:%d write data error:%s\n", __func__, __LINE__, strerror(errno));
@@ -201,32 +150,38 @@ int i2c_write_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned
 	return 0;
 }
 
-/**
- * i2c 多字节写
- * */
-int i2c_write_bytes(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char *p_value_bytes,unsigned int len)
+int32_t i2c_read_nbytes(uint8_t i2c_addr, uint16_t i2c_read_addr, uint8_t *i2c_read_data, uint8_t len)
 {
-	int ret = 0,i = 0;
-    unsigned char buf[10]={0};
-    struct i2c_msg message;
-    
-    buf[0] = reg_addr;//寄存器地址
-    for(i = 0;i < len;i++){
-        buf[i+1] = p_value_bytes[i];
+    //For user implement
+    int ret = -1;
+
+    if (0 == i2c_fd)
+    {
+        ret = i2c_init();
+        if (ret < 0)
+        {
+            return -1;
+        }
     }
-    message.addr = dev_addr;//设备地址
-    message.buf = buf;
-    message.flags = 0;//写标志
-    message.len = len+1;//data+reg_addr
+    i2c_read_bytes_dou_reg(i2c_fd, i2c_addr, i2c_read_addr, i2c_read_data, len);
 
-    i2c_data.msgs = &message;
-    i2c_data.nmsgs = 1;
+    return 0;
+}
 
-	ret = ioctl(fd, I2C_RDWR,&i2c_data);
-	if (ret < 0)
-	{
-		printf("%s:%d write data error:%s\n", __func__, __LINE__, strerror(errno));
-		return -1;
-	}
-	return 0;
+int32_t i2c_write_nbytes(uint8_t i2c_addr, uint16_t i2c_write_addr, uint8_t *i2c_write_data, uint8_t len)
+{
+    //For user implement
+    int ret = -1;
+
+    if (0 == i2c_fd)
+    {
+        ret = i2c_init();
+        if (ret < 0)
+        {
+            return -1;
+        }
+    }
+    i2c_write_bytes_dou_reg(i2c_fd, i2c_addr, i2c_write_addr, i2c_write_data, len);
+
+    return 0;
 }
