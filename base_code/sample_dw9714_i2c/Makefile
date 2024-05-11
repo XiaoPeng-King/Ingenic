@@ -17,11 +17,11 @@ endif
 
 LDFLAG += -Wl,-gc-sections
 
-SAMPLES = sample_i2c \
+SAMPLES = sample_dw9714_i2c \
 
 all: 	$(SAMPLES)
 
-sample_i2c: sample_i2c.o
+sample_dw9714_i2c: sample_i2c.o
 #$(CPLUSPLUS) $(LDFLAG) -o $@ $^ $(LIBS) -lpthread -lm -lrt -ldl
 	$(CPLUSPLUS) $(LDFLAG) -o $@ $^ -lpthread -lm -lrt -ldl
 	$(STRIP) $@

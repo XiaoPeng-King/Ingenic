@@ -107,39 +107,6 @@ int i2c_read_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned 
 }
 #endif
 
-
-/**
- * i2c 单字节读取
- * */
-int i2c_read_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char *buf)
-{
-	int ret = 0;
-	int dev_node = i2c_fd; //文件句柄
-    struct i2c_msg message[2]; //消息个数
-
-    message[0].addr = dev_addr;//设备地址
-    message[0].flags = 0;   //写标志
-    message[0].buf = &reg_addr;//寄存器地址
-    message[0].len = sizeof(reg_addr);
-
-    message[1].addr = dev_addr;//设备地址
-    message[1].flags = I2C_M_RD; //读标志
-    message[1].buf = buf;
-    message[1].len = sizeof(reg_addr);
-
-    i2c_data.msgs = message;
-    i2c_data.nmsgs = 2;
-
-    ret = ioctl(dev_node, I2C_RDWR, (unsigned long)&i2c_data);
-    if (ret < 0)
-    {
-		printf("%s:%d I2C: read error:%s\n", __func__, __LINE__, strerror(errno));
-		return ret;
-	}
-	return 0;
-}
-
-
 /**
  * 
  * i2c 多字节读取
@@ -153,6 +120,39 @@ int i2c_read_bytes(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned
     message[0].flags = 0;   //写标志
     message[0].buf = &reg_addr;//寄存器地址
     message[0].len = sizeof(reg_addr);
+
+    message[1].addr = dev_addr;//设备地址
+    message[1].flags = I2C_M_RD; //读标志
+    message[1].buf = buf;
+    message[1].len = sizeof(unsigned char)*len;
+
+    i2c_data.msgs = message;
+    i2c_data.nmsgs = 2;
+
+    ret = ioctl(fd, I2C_RDWR, (unsigned long)&i2c_data);
+    if (ret < 0)
+    {
+		printf("%s:%d I2C: read error:%s\n", __func__, __LINE__, strerror(errno));
+		return ret;
+	}
+	return 0;
+}
+
+/**
+ * DW9714 i2c 读取操作
+ * 由于 DW9714 读取的时候没有寄存器地址，因此，我们直接写设备地址，然后就开始读取数据
+ * 
+ * 
+ * */
+int i2c_read_byte_DW9712(int fd,unsigned char dev_addr, unsigned char *buf, unsigned int len)
+{
+	int ret = 0;
+    struct i2c_msg message[2];
+
+    message[0].addr = dev_addr;//设备地址
+    message[0].flags = 0;   //写标志
+    //message[0].buf = &reg_addr;//寄存器地址
+    message[0].len = 0; //sizeof(reg_addr);
 
     message[1].addr = dev_addr;//设备地址
     message[1].flags = I2C_M_RD; //读标志
@@ -204,36 +204,6 @@ int i2c_write_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned
 #endif
 
 /**
- * i2c 单字节写
- * */
-int i2c_write_byte(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char value_byte)
-{
-	int ret = 0;
-    unsigned char buf[2]={0};
-    struct i2c_msg message;
-    
-    buf[0] = reg_addr;//寄存器地址
-    buf[1] = value_byte;//写入的字节
-   
-    message.addr = dev_addr;//设备地址
-    message.buf = buf;
-    message.flags = 0;//写标志
-    message.len = 2;
-
-    i2c_data.msgs = &message;
-    i2c_data.nmsgs = 1;
-
-	ret = ioctl(fd, I2C_RDWR,&i2c_data);
-	if (ret < 0)
-	{
-		printf("%s:%d write data error:%s\n", __func__, __LINE__, strerror(errno));
-		return -1;
-	}
-	return 0;
-}
-
-
-/**
  * i2c 多字节写
  * */
 int i2c_write_bytes(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigned char *p_value_bytes,unsigned int len)
@@ -250,6 +220,39 @@ int i2c_write_bytes(int fd,unsigned char dev_addr,unsigned char reg_addr,unsigne
     message.buf = buf;
     message.flags = 0;//写标志
     message.len = len+1;//data+reg_addr
+
+    i2c_data.msgs = &message;
+    i2c_data.nmsgs = 1;
+
+	ret = ioctl(fd, I2C_RDWR,&i2c_data);
+	if (ret < 0)
+	{
+		printf("%s:%d write data error:%s\n", __func__, __LINE__, strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
+/**
+ * i2c DW9714
+ * 这里DW9714 写操作只需要设备地址就可以了，没有寄存器地址，因此，这里的buf里面直接写数据，没有放寄存器地址进去。
+ * 写操作格式如下：设备地址，数据1，数据2
+ * 这里的设备地址是 0x18, 然后DW9714的默认只有两个8bit数据可以操作。
+ * */
+int i2c_write_byte_DW9714(int fd,unsigned char dev_addr,unsigned char *p_value_bytes, unsigned int len)
+{
+	int ret = 0,i = 0;
+    unsigned char buf[10]={0};
+    struct i2c_msg message;
+
+    for(i = 0;i < len;i++){
+        buf[i] = p_value_bytes[i];
+    }
+   
+    message.addr = dev_addr;//设备地址
+    message.buf = buf;
+    message.flags = 0;//写标志
+    message.len = len;
 
     i2c_data.msgs = &message;
     i2c_data.nmsgs = 1;
@@ -290,7 +293,10 @@ int main(int argc, char *argv[])
 
     while (1) {
 
-        i2c_read_bytes(i2c_fd, I2C_DW9714_DEV_ADDR, 0x18, read_data_arr, 2);
+        i2c_write_byte_DW9714(i2c_fd, I2C_DW9714_DEV_ADDR, write_data_arr, 2);
+
+        //0x18 0001 1000 -> 0011 0001/0 ->0x31/30
+        i2c_read_byte_DW9712(i2c_fd, I2C_DW9714_DEV_ADDR, read_data_arr, 2);
         printf("read byte : %s \n", read_data_arr);
         usleep(500000);
 
