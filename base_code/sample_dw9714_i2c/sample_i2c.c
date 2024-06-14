@@ -22,7 +22,7 @@
 
 //#define I2C_24C02_DEV_ADDR 0x50   //i2c设备地址
 
-#define I2C_DW9714_DEV_ADDR 0x18   
+#define I2C_DW9714_DEV_ADDR 0x0C //0x18   
 
 
 const char default_i2c[] = "/dev/i2c-1";
@@ -276,7 +276,11 @@ int main(int argc, char *argv[])
 	int ret = 0;
     int i = 0;
     unsigned char read_byte = 0;
-    unsigned char write_data_arr[10] = {0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17};
+
+    //0011 1111 1111 1000
+    unsigned char write_data_arr0[10] = {0x3F,0xF8,0x12,0x13,0x14,0x15,0x16,0x17};
+    //0000 0000 1111 1000
+    unsigned char write_data_arr1[10] = {0x00,0xF8,0x12,0x13,0x14,0x15,0x16,0x17};
     unsigned char read_data_arr[10] = {0};
     if(argc > 1){
         path = argv[1];
@@ -293,41 +297,14 @@ int main(int argc, char *argv[])
 
     while (1) {
 
-        i2c_write_byte_DW9714(i2c_fd, I2C_DW9714_DEV_ADDR, write_data_arr, 2);
+        i2c_write_byte_DW9714(i2c_fd, I2C_DW9714_DEV_ADDR, write_data_arr0, 2);
+        usleep(1000000);
+        i2c_write_byte_DW9714(i2c_fd, I2C_DW9714_DEV_ADDR, write_data_arr1, 2);
+        usleep(1000000);
 
-        //0x18 0001 1000 -> 0011 0001/0 ->0x31/30
-        i2c_read_byte_DW9712(i2c_fd, I2C_DW9714_DEV_ADDR, read_data_arr, 2);
-        printf("read byte : %s \n", read_data_arr);
-        usleep(500000);
-
+        //i2c_read_byte_DW9712(i2c_fd, I2C_DW9714_DEV_ADDR, read_data_arr, 2);
+        //usleep(500000);
     }
-
-
-    #if 0
-    /**
-     * 单字节测试
-     * */
-    i2c_write_byte(i2c_fd,I2C_TP_GT911_DEV_ADDR,0x20,0xee);
-    sleep(1);
-    i2c_read_byte(i2c_fd,I2C_TP_GT911_DEV_ADDR,0x20,&read_byte);
-    if(read_byte != 0xee){
-        printf("read byte errno\n");
-    }else {
-        printf("check read_byte right\n");
-    }
-    /**
-     * 多字节测试
-     * */
-    i2c_write_bytes(i2c_fd,I2C_TP_GT911_DEV_ADDR, 0x0, write_data_arr, 8);//设备地址+寄存器地址+写入数据
-    sleep(1);
-    i2c_read_bytes(i2c_fd,I2C_TP_GT911_DEV_ADDR,0x0,read_data_arr,8);
-    for(i = 0;i < 8 ;i++ ){
-        printf("read [%d] byte is 0x%x\n",i,read_data_arr[i]);
-        if(read_data_arr[i] != write_data_arr[i]){
-            printf("check data errno\n");
-        }
-    }
-    #endif
 
     i2c_exit();
     return ret;
