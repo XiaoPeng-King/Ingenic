@@ -41,11 +41,11 @@ extern "C"
 /******************************************** Sensor Attribute Table *********************************************/
 
 /* first sensor */
-#define FIRST_SNESOR_NAME 			"sc530ai"			//sensor name (match with snesor driver name)
-#define	FIRST_I2C_ADDR				0x30				//sensor i2c address
+#define FIRST_SNESOR_NAME 			"gc2063"			//sensor name (match with snesor driver name)
+#define	FIRST_I2C_ADDR				0x37				//sensor i2c address
 #define	FIRST_I2C_ADAPTER_ID		1					//sensor controller number used (0/1/2/3)
-#define FIRST_SENSOR_WIDTH			2880				//sensor width
-#define FIRST_SENSOR_HEIGHT			1620				//sensor height
+#define FIRST_SENSOR_WIDTH			1920				//sensor width
+#define FIRST_SENSOR_HEIGHT			1080				//sensor height
 #define	FIRST_RST_GPIO				GPIO_PC(27)			//sensor reset gpio
 #define	FIRST_PWDN_GPIO				-1					//sensor pwdn gpio
 #define	FIRST_POWER_GPIO			-1					//sensor power gpio
@@ -138,8 +138,8 @@ extern "C"
 #define ENC_VIDEO_CHANNEL		0
 #define ENC_JPEG_CHANNEL		1
 
-#define STREAM_FILE_PATH_PREFIX		"/tmp"
-#define SNAP_FILE_PATH_PREFIX		"/tmp"
+#define STREAM_FILE_PATH_PREFIX		"."
+#define SNAP_FILE_PATH_PREFIX		"."
 
 #define RESIZE_TIMESTAMP        0
 #define RESIZE_LOGO	            0
